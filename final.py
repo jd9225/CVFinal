@@ -1,6 +1,9 @@
 import tensorflow as tf
-from keras.models import Sequential
-from keras.layers import Dense, Flatten, Dropout, LSTM
+from keras.models import Sequential, Model
+from keras.layers import Dense, Flatten, Dropout, merge, Convolution2D, \
+    LSTM, ConvLSTM2D, Input, TimeDistributed, MaxPooling2D, UpSampling2D
+from keras_extensions import (categorical_crossentropy_3d_w, softmax_3d, softmax_2d)
+
 from keras.optimizers import SGD
 import cv2 as cv
 import numpy as np
@@ -36,17 +39,40 @@ y_test = np.zeros((1)) #y[i:]
 #test_bboxes = bboxes[i:]
 
 #build model
-model = Sequential()
-model.add(LSTM(128, input_shape=(x_train.shape[1:]), activation='relu', return_sequences=True))
-model.add(Dropout(0.2))
+c = 12
+input_img = Input(x_train.shape[1:], name='input')
+x = ConvLSTM2D(nb_filter=c, nb_row=3, nb_col=3, border_mode='same', return_sequences=True)(input_img)
+x = ConvLSTM2D(nb_filter=c, nb_row=3, nb_col=3, border_mode='same', return_sequences=True)(x)
+c1 = ConvLSTM2D(nb_filter=c, nb_row=3, nb_col=3, border_mode='same', return_sequences=True)(x)
 
-model.add(LSTM(128, activation='relu'))
-model.add(Dropout(0.1))
+x = TimeDistributed(MaxPooling2D((2, 2), (2, 2)))(c1)
 
-model.add(Dense(32, activation='relu'))
-model.add(Dropout(0.2))
+x = ConvLSTM2D(nb_filter=2 * c, nb_row=3, nb_col=3, border_mode='same', return_sequences=True)(x)
+x = ConvLSTM2D(nb_filter=2 * c, nb_row=3, nb_col=3, border_mode='same', return_sequences=True)(x)
+c2 = ConvLSTM2D(nb_filter=2 * c, nb_row=3, nb_col=3, border_mode='same', return_sequences=True)(x)
 
-model.add(Dense(1, activation='softmax'))
+x = TimeDistributed(MaxPooling2D((2, 2), (2, 2)))(c2)
+x = ConvLSTM2D(nb_filter=2 * c, nb_row=3, nb_col=3, border_mode='same', return_sequences=True)(x)
+x = ConvLSTM2D(nb_filter=2 * c, nb_row=3, nb_col=3, border_mode='same', return_sequences=True)(x)
+c3 = ConvLSTM2D(nb_filter=2 * c, nb_row=3, nb_col=3, border_mode='same', return_sequences=True)(x)
+
+x = TimeDistributed(UpSampling2D((2, 2)))(c3)
+x = merge([c2, x], mode='concat')
+x = TimeDistributed(Convolution2D(c, 3, 3, border_mode='same'))(x)
+
+x = TimeDistributed(UpSampling2D((2, 2)))(x)
+x = merge([c1, x], mode='concat')
+# x = TimeDistributed(Convolution2D(c, 3, 3, border_mode='same'))(x)
+
+x = TimeDistributed(Convolution2D(3, 3, 3, border_mode='same'))(x)
+x = TimeDistributed(UpSampling2D((2, 2)))(x)
+x = TimeDistributed(Convolution2D(3, 3, 3, border_mode='same'))(x)
+x = TimeDistributed(UpSampling2D((2, 2)))(x)
+
+output = TimeDistributed(Convolution2D(3, 3, 3, border_mode='same', activation=softmax_2d(-1)), name='output')(x)
+
+model = Model(input_img, output=[output])
+#model.compile(loss=categorical_crossentropy_3d_w(2, class_dim=-1), optimizer='adadelta')
 
 
 #train
