@@ -18,9 +18,8 @@ for seqnum in ["000103", "000108", "000113", "000118", "000123", "000128", "0001
     im = cv.imread("D:\CSCI631-FoundCV\Final Project\FinalProject\yolov3\\train\\{}.jpg".format(seqnum))
     img_clr = cv.cvtColor(im, cv.COLOR_BGR2GRAY)
     img = downscale_local_mean(img_clr, (2,2))
-    images.append(img[np.newaxis, ..., np.newaxis])
+    images.append(img[np.newaxis, np.newaxis, ..., np.newaxis])
 x_train = np.vstack(images)
-x_train = x_train[np.newaxis, ...]
 
 print(x_train.shape)
 
@@ -29,9 +28,8 @@ for seqnum in ["000304", "000309", "000314", "000319", "000324", "000329", "0003
     imt = cv.imread("D:\CSCI631-FoundCV\Final Project\FinalProject\yolov3\\train\\{}.jpg".format(seqnum))
     imgt_clr = cv.cvtColor(imt, cv.COLOR_BGR2GRAY)
     imgt = downscale_local_mean(imgt_clr, (2,2))
-    images.append(imgt[np.newaxis, ..., np.newaxis])
+    images.append(imgt[np.newaxis,np.newaxis, ..., np.newaxis])
 x_test = np.vstack(images)
-x_test = x_test[np.newaxis, ...]
 
 print(x_test.shape)
 
@@ -40,14 +38,26 @@ imgX = cv.cvtColor(imt, cv.COLOR_BGR2GRAY)
 imgX_ds = downscale_local_mean(imgX, (2,2))
 test_X = imgX_ds
 
-
 imX2 = cv.imread("D:\CSCI631-FoundCV\Final Project\FinalProject\yolov3\\train\\000461.jpg")
 imgX2 = cv.cvtColor(imt, cv.COLOR_BGR2GRAY)
 imgX2_ds = downscale_local_mean(imgX2, (2,2))
 test_X2 = imgX2_ds
 
+imX3 = cv.imread("D:\CSCI631-FoundCV\Final Project\FinalProject\yolov3\\train\\004647.jpg")
+imgX3 = cv.cvtColor(imt, cv.COLOR_BGR2GRAY)
+imgX3_ds = downscale_local_mean(imgX3, (2,2))
+test_X3 = imgX3_ds
+
+imX4 = cv.imread("D:\CSCI631-FoundCV\Final Project\FinalProject\yolov3\\train\\allwhite.jpg")
+imgX4 = cv.cvtColor(imt, cv.COLOR_BGR2GRAY)
+imgX4_ds = downscale_local_mean(imgX4, (2,2))
+test_X4 = imgX4_ds
+
 #test_X_d3 = np.array([test_X, test_X2])
-test_X_d3 = np.vstack([ test_X[np.newaxis,np.newaxis,...,np.newaxis], test_X2[np.newaxis,np.newaxis,...,np.newaxis]])
+test_X_d5 = np.vstack([ test_X[np.newaxis,np.newaxis,...,np.newaxis],
+                        test_X2[np.newaxis,np.newaxis,...,np.newaxis],
+                        test_X3[np.newaxis,np.newaxis,...,np.newaxis],
+                        test_X4[np.newaxis,np.newaxis,...,np.newaxis]])
 
 sizew = img.shape[1:][0]
 sizeh = img.shape[0]
@@ -57,8 +67,8 @@ print(sizeh, sizew)
 #i = int(0.8 * num_imgs)
 #x_train = img[np.newaxis, np.newaxis, ..., np.newaxis]#np.zeros((1, 1, sizeh, sizew, 1))
 #x_test = imgt[np.newaxis, np.newaxis, ..., np.newaxis]#np.zeros((1, 1, sizeh, sizew, 1))
-y_train = np.array(([1])) #y[:i]
-y_test = np.array(([1])) #y[i:]
+y_train = np.array(([0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[1,0])) #y[:i]
+y_test = np.array(([0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[1,0])) #y[i:]
 #test_imgs = imgs[i:]
 #test_bboxes = bboxes[i:]
 #print("xtrain", x_train)
@@ -66,22 +76,22 @@ y_test = np.array(([1])) #y[i:]
 #build model
 seq = Sequential()
 seq.add(ConvLSTM2D(filters=40, kernel_size=(3, 3),
-                   input_shape=(7, 360, 640, 1),
+                   input_shape=(1, 360, 640, 1),
                    padding='same', return_sequences=True))
 seq.add(BatchNormalization())
 
-seq.add(ConvLSTM2D(filters=40, kernel_size=(3, 3),
-                   padding='same', return_sequences=True))
-seq.add(BatchNormalization())
-
-seq.add(ConvLSTM2D(filters=40, kernel_size=(3, 3),
-                   padding='same', return_sequences=True))
-seq.add(BatchNormalization())
+# seq.add(ConvLSTM2D(filters=40, kernel_size=(3, 3),
+#                    padding='same', return_sequences=True))
+# seq.add(BatchNormalization())
+#
+# seq.add(ConvLSTM2D(filters=40, kernel_size=(3, 3),
+#                    padding='same', return_sequences=True))
+# seq.add(BatchNormalization())
 
 seq.add(ConvLSTM2D(filters=40, kernel_size=(3, 3),
                    padding='same', return_sequences=True))
 seq.add(Flatten())
-seq.add(Dense(1, activation='softmax'))
+seq.add(Dense(2, activation='softmax'))
 seq.compile(loss='binary_crossentropy', optimizer='adadelta', metrics=['mae', 'acc'])
 
 # seq.add(BatchNormalization())
@@ -110,6 +120,9 @@ model.fit(x_train,
 #vec = test_X[np.newaxis, :]
 
 # predict accidents test images
-pred_y = model.predict(test_X_d3)
+pred_y = model.predict_classes(test_X_d5, verbose=True)
+
+# predict time to accident
+# predTTE_y = model.predict_TTE()
 
 print(pred_y)
