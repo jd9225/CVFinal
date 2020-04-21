@@ -1,13 +1,16 @@
 import tensorflow as tf
 from keras.models import Sequential, Model
 from keras.layers import Dense, Flatten, Dropout, merge, Convolution2D, \
-    LSTM, ConvLSTM2D, Input, TimeDistributed, MaxPooling2D, UpSampling2D
+    LSTM, ConvLSTM2D, Input, TimeDistributed, MaxPooling2D, UpSampling2D, \
+    Activation, Layer
+from keras import backend
 from keras.layers.normalization import BatchNormalization
 from keras.layers.convolutional import Conv3D
 from skimage.transform import rescale, resize, downscale_local_mean
-
+from attention import AttentionLayer
 from keras_extensions import (categorical_crossentropy_3d_w, softmax_3d, softmax_2d)
-
+from attention_lstm import AttentionLSTM
+from attention_decoder import AttentionDecoder
 from keras.optimizers import SGD
 import cv2 as cv
 import numpy as np
@@ -80,13 +83,16 @@ seq.add(ConvLSTM2D(filters=40, kernel_size=(3, 3),
                    padding='same', return_sequences=True))
 seq.add(BatchNormalization())
 
-# seq.add(ConvLSTM2D(filters=40, kernel_size=(3, 3),
-#                    padding='same', return_sequences=True))
-# seq.add(BatchNormalization())
-#
-# seq.add(ConvLSTM2D(filters=40, kernel_size=(3, 3),
-#                    padding='same', return_sequences=True))
-# seq.add(BatchNormalization())
+seq.add(ConvLSTM2D(filters=40, kernel_size=(3, 3),
+                   padding='same', return_sequences=True))
+seq.add(BatchNormalization())
+
+#seq.add(AttentionLSTM())
+#attn_out, attn_states = attn_layer([encoder_outputs, decoder_outputs])
+
+seq.add(ConvLSTM2D(filters=40, kernel_size=(3, 3),
+                   padding='same', return_sequences=True))
+seq.add(BatchNormalization())
 
 seq.add(ConvLSTM2D(filters=40, kernel_size=(3, 3),
                    padding='same', return_sequences=True))
