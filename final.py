@@ -7,31 +7,34 @@ from keras import backend
 from keras.layers.normalization import BatchNormalization
 from keras.layers.convolutional import Conv3D
 from skimage.transform import rescale, resize, downscale_local_mean
-from attention import AttentionLayer
-from keras_extensions import (categorical_crossentropy_3d_w, softmax_3d, softmax_2d)
-from attention_lstm import AttentionLSTM
-from attention_decoder import AttentionDecoder
-from keras.optimizers import SGD
 import cv2 as cv
 import numpy as np
+import matplotlib.pyplot as plt
+from keras.applications.vgg16 import VGG16
+from keras.preprocessing import image
+from keras.applications.vgg16 import preprocess_input
+import numpy as np
+import cv2 as cv
 
 #load images
 images = []
-for seqnum in ["000103", "000108", "000113", "000118", "000123", "000128", "000133"]:
+for seqnum in ["000103", "000108", "000113", "000118", "000123", "000128", "000133",
+               "000431", "000436", "000441", "000446", "000451", "000456", "000461"]:
     im = cv.imread("D:\CSCI631-FoundCV\Final Project\FinalProject\yolov3\\train\\{}.jpg".format(seqnum))
     img_clr = cv.cvtColor(im, cv.COLOR_BGR2GRAY)
     img = downscale_local_mean(img_clr, (2,2))
-    images.append(img[np.newaxis, np.newaxis, ..., np.newaxis])
+    images.append(img[np.newaxis, ...])
 x_train = np.vstack(images)
 
 print(x_train.shape)
 
 images=[]
-for seqnum in ["000304", "000309", "000314", "000319", "000324", "000329", "000334"]:
+for seqnum in ["000304", "000309", "000314", "000319", "000324", "000329", "000334",
+               "000514", "000519", "000524", "000529", "000534", "000539", "000544"]:
     imt = cv.imread("D:\CSCI631-FoundCV\Final Project\FinalProject\yolov3\\train\\{}.jpg".format(seqnum))
     imgt_clr = cv.cvtColor(imt, cv.COLOR_BGR2GRAY)
     imgt = downscale_local_mean(imgt_clr, (2,2))
-    images.append(imgt[np.newaxis,np.newaxis, ..., np.newaxis])
+    images.append(imgt[np.newaxis, ...])
 x_test = np.vstack(images)
 
 print(x_test.shape)
@@ -56,11 +59,29 @@ imgX4 = cv.cvtColor(imt, cv.COLOR_BGR2GRAY)
 imgX4_ds = downscale_local_mean(imgX4, (2,2))
 test_X4 = imgX4_ds
 
+imX5 = cv.imread("D:\CSCI631-FoundCV\Final Project\FinalProject\yolov3\\train\\003062.jpg")
+imgX5 = cv.cvtColor(imt, cv.COLOR_BGR2GRAY)
+imgX5_ds = downscale_local_mean(imgX5, (2,2))
+test_X5 = imgX5_ds
+
+imX6 = cv.imread("D:\CSCI631-FoundCV\Final Project\FinalProject\yolov3\\train\\003727.jpg")
+imgX6 = cv.cvtColor(imt, cv.COLOR_BGR2GRAY)
+imgX6_ds = downscale_local_mean(imgX6, (2,2))
+test_X6 = imgX6_ds
+
+imX7 = cv.imread("D:\CSCI631-FoundCV\Final Project\FinalProject\yolov3\\train\\004682.jpg")
+imgX7 = cv.cvtColor(imt, cv.COLOR_BGR2GRAY)
+imgX7_ds = downscale_local_mean(imgX7, (2,2))
+test_X7 = imgX7_ds
+
 #test_X_d3 = np.array([test_X, test_X2])
-test_X_d5 = np.vstack([ test_X[np.newaxis,np.newaxis,...,np.newaxis],
-                        test_X2[np.newaxis,np.newaxis,...,np.newaxis],
-                        test_X3[np.newaxis,np.newaxis,...,np.newaxis],
-                        test_X4[np.newaxis,np.newaxis,...,np.newaxis]])
+test_X_d5 = np.vstack([ test_X[np.newaxis,...],
+                        test_X2[np.newaxis,...],
+                        test_X3[np.newaxis,...],
+                        test_X4[np.newaxis,...],
+                        test_X5[np.newaxis,...],
+                        test_X6[np.newaxis,...],
+                        test_X7[np.newaxis,...]])
 
 sizew = img.shape[1:][0]
 sizeh = img.shape[0]
@@ -70,35 +91,38 @@ print(sizeh, sizew)
 #i = int(0.8 * num_imgs)
 #x_train = img[np.newaxis, np.newaxis, ..., np.newaxis]#np.zeros((1, 1, sizeh, sizew, 1))
 #x_test = imgt[np.newaxis, np.newaxis, ..., np.newaxis]#np.zeros((1, 1, sizeh, sizew, 1))
-y_train = np.array(([0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[1,0])) #y[:i]
-y_test = np.array(([0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[1,0])) #y[i:]
+y_train = np.array(([0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[1,0],
+                    [0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[1,0])) #y[:i]
+y_test = np.array(([0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[1,0],
+                   [0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[1,0])) #y[i:]
 #test_imgs = imgs[i:]
 #test_bboxes = bboxes[i:]
 #print("xtrain", x_train)
 
 #build model
 seq = Sequential()
-seq.add(ConvLSTM2D(filters=40, kernel_size=(3, 3),
-                   input_shape=(1, 360, 640, 1),
-                   padding='same', return_sequences=True))
+seq.add(LSTM(128,input_shape=(360, 640), batch_input_shape=(7, 360, 640),
+                    return_sequences=True, stateful=True))
+seq.add(Dense(128, activation='relu'))
 seq.add(BatchNormalization())
 
-seq.add(ConvLSTM2D(filters=40, kernel_size=(3, 3),
-                   padding='same', return_sequences=True))
+seq.add(LSTM(64,return_sequences=True, stateful=True))
+seq.add(Dense(64, activation='relu'))
 seq.add(BatchNormalization())
 
-#seq.add(AttentionLSTM())
-#attn_out, attn_states = attn_layer([encoder_outputs, decoder_outputs])
+# seq.add(Attention())
 
-seq.add(ConvLSTM2D(filters=40, kernel_size=(3, 3),
-                   padding='same', return_sequences=True))
+seq.add(LSTM(32,return_sequences=True, stateful=True))
+seq.add(Dense(32, activation='relu'))
 seq.add(BatchNormalization())
 
-seq.add(ConvLSTM2D(filters=40, kernel_size=(3, 3),
-                   padding='same', return_sequences=True))
+seq.add(LSTM(16,return_sequences=True, stateful=True))
+seq.add(Dense(2, activation='softmax'))
 seq.add(Flatten())
 seq.add(Dense(2, activation='softmax'))
-seq.compile(loss='binary_crossentropy', optimizer='adadelta', metrics=['mae', 'acc'])
+
+opt = tf.keras.optimizers.Adam(lr=0.001, decay=1e-6)
+seq.compile(loss='binary_crossentropy', optimizer=opt, metrics=['mae', 'acc'])
 
 # seq.add(BatchNormalization())
 #
@@ -106,6 +130,7 @@ seq.compile(loss='binary_crossentropy', optimizer='adadelta', metrics=['mae', 'a
 #                activation='sigmoid',
 #                padding='same', data_format='channels_last'))
 
+seq.summary()
 #model.compile(loss=categorical_crossentropy_3d_w(2, class_dim=-1), optimizer='adadelta')
 model = seq
 
@@ -118,10 +143,11 @@ model = seq
 #     metrics=['accuracy'],
 # )
 
-model.fit(x_train,
+history = model.fit(x_train,
           y_train,
           epochs=3,
-          validation_data=(x_test, y_test))
+          validation_data=(x_test, y_test),
+          batch_size=7)
 
 #vec = test_X[np.newaxis, :]
 
@@ -132,3 +158,23 @@ pred_y = model.predict_classes(test_X_d5, verbose=True)
 # predTTE_y = model.predict_TTE()
 
 print(pred_y)
+
+print(history)
+
+acc_vals = history.history['acc']
+epochs = range(1, len(acc_vals)+1)
+plt.plot(epochs, acc_vals, label='Training Accuracy')
+plt.xlabel('Epochs')
+plt.ylabel('Accuracy')
+plt.legend()
+
+plt.show()
+
+loss_values = history.history['mae']
+epochs = range(1, len(loss_values)+1)
+plt.plot(epochs, loss_values, label='Training Loss')
+plt.xlabel('Epochs')
+plt.ylabel('Loss')
+plt.legend()
+
+plt.show()
