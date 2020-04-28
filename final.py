@@ -87,37 +87,88 @@ sizew = img.shape[1:][0]
 sizeh = img.shape[0]
 print(sizeh, sizew)
 
+
+model = tf.keras.models.load_model("D:\CSCI631-FoundCV\Final Project\FinalProject\\vgg16.h5")
+model.layers.pop()
+model.layers.pop()
+
+images = ['D:\CSCI631-FoundCV\Final Project\FinalProject\yolov3\\train\\000103.jpg',
+          'D:\CSCI631-FoundCV\Final Project\FinalProject\yolov3\\train\\000108.jpg',
+          'D:\CSCI631-FoundCV\Final Project\FinalProject\yolov3\\train\\000113.jpg',
+          'D:\CSCI631-FoundCV\Final Project\FinalProject\yolov3\\train\\000118.jpg',
+          'D:\CSCI631-FoundCV\Final Project\FinalProject\yolov3\\train\\000123.jpg',
+          'D:\CSCI631-FoundCV\Final Project\FinalProject\yolov3\\train\\000128.jpg',
+          'D:\CSCI631-FoundCV\Final Project\FinalProject\yolov3\\train\\000133.jpg']
+testimages = ['D:\CSCI631-FoundCV\Final Project\FinalProject\yolov3\\train\\000304.jpg',
+          'D:\CSCI631-FoundCV\Final Project\FinalProject\yolov3\\train\\000309.jpg',
+          'D:\CSCI631-FoundCV\Final Project\FinalProject\yolov3\\train\\000314.jpg',
+          'D:\CSCI631-FoundCV\Final Project\FinalProject\yolov3\\train\\000319.jpg',
+          'D:\CSCI631-FoundCV\Final Project\FinalProject\yolov3\\train\\000324.jpg',
+          'D:\CSCI631-FoundCV\Final Project\FinalProject\yolov3\\train\\000329.jpg',
+          'D:\CSCI631-FoundCV\Final Project\FinalProject\yolov3\\train\\000334.jpg']
+
+predictimages = ['D:\CSCI631-FoundCV\Final Project\FinalProject\yolov3\\train\\000461.jpg']
+
+def preprocessing(files):
+    a = []
+    #tf.enable_eager_execution()
+    for img_path in files:
+        img = image.load_img(img_path, target_size=(224, 224))
+        x = image.img_to_array(img)
+        x = np.expand_dims(x, axis=0)
+        x = preprocess_input(x)
+
+        features = model.predict(x)
+        a.append(features[np.newaxis, ...])
+
+        f = model.layers[-2].output
+        # print(features.shape)
+        f = tf.squeeze(f, axis=0)
+        #print(f.shape)
+        #print(f)
+        #print(type(f.numpy()))
+        #proto_tensor = tf.make_tensor_proto(tf.convert_to_tensor(f))
+        #npf = tf.make_ndarray(proto_tensor)
+        #a.append(npf[np.newaxis, ...])
+
+    #print(a)
+    inputarr = np.vstack(a)
+    #inputarr = inputarr[np.newaxis, ...]
+    print(inputarr.shape)
+    return inputarr
+
+
+x_train = preprocessing(images)
+x_test = preprocessing(testimages)
+x_predict = preprocessing(predictimages)
+
 #split into train and test
 #i = int(0.8 * num_imgs)
 #x_train = img[np.newaxis, np.newaxis, ..., np.newaxis]#np.zeros((1, 1, sizeh, sizew, 1))
 #x_test = imgt[np.newaxis, np.newaxis, ..., np.newaxis]#np.zeros((1, 1, sizeh, sizew, 1))
-y_train = np.array(([0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[1,0],
-                    [0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[1,0])) #y[:i]
-y_test = np.array(([0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[1,0],
-                   [0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[1,0])) #y[i:]
+y_train = np.array([[0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[1,0]]) #y[:i]
+y_test = np.array(([0,1],[0,1],[0,1],[0,1],[0,1],[0,1],[1,0])) #y[i:]
 #test_imgs = imgs[i:]
 #test_bboxes = bboxes[i:]
 #print("xtrain", x_train)
 
+#features = np.expand_dims(features, axis = 0)
+
 #build model
 seq = Sequential()
-seq.add(LSTM(128,input_shape=(360, 640), batch_input_shape=(7, 360, 640),
-                    return_sequences=True, stateful=True))
+seq.add(LSTM(128,input_shape=(1,1000),return_sequences=True))
 seq.add(Dense(128, activation='relu'))
 seq.add(BatchNormalization())
 
-seq.add(LSTM(64,return_sequences=True, stateful=True))
+seq.add(LSTM(64,return_sequences=True))
 seq.add(Dense(64, activation='relu'))
 seq.add(BatchNormalization())
 
 # seq.add(Attention())
 
-seq.add(LSTM(32,return_sequences=True, stateful=True))
+seq.add(LSTM(32,return_sequences=True))
 seq.add(Dense(32, activation='relu'))
-seq.add(BatchNormalization())
 
-seq.add(LSTM(16,return_sequences=True, stateful=True))
-seq.add(Dense(2, activation='softmax'))
 seq.add(Flatten())
 seq.add(Dense(2, activation='softmax'))
 
@@ -146,13 +197,12 @@ model = seq
 history = model.fit(x_train,
           y_train,
           epochs=3,
-          validation_data=(x_test, y_test),
-          batch_size=7)
+          validation_data=(x_test, y_test))
 
 #vec = test_X[np.newaxis, :]
 
 # predict accidents test images
-pred_y = model.predict_classes(test_X_d5, verbose=True)
+pred_y = model.predict_classes(x_predict, verbose=True)
 
 # predict time to accident
 # predTTE_y = model.predict_TTE()
